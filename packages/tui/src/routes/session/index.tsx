@@ -1,5 +1,6 @@
 import {
   batch,
+  createContext,
   createEffect,
   createMemo,
   createSignal,
@@ -10,6 +11,7 @@ import {
   onCleanup,
   Show,
   Switch,
+  useContext,
   type Accessor,
 } from "solid-js"
 import path from "node:path"
@@ -132,6 +134,13 @@ export { InlineToolRow } from "./message-parts"
 export { toolDisplay } from "./message-parts"
 
 addDefaultParsers(parsers.parsers)
+
+/**
+ * Part-level revert fallback. `ToolPart` provides the callback for its tool, so
+ * `InlineTool`/`BlockTool` can open the revert dialog on click when they have no
+ * click action of their own (expand/collapse, open detail, ...).
+ */
+const RevertFallback = createContext<(() => void) | undefined>(undefined)
 
 // Exclude temporary bottom space when measuring the real transcript height.
 const NAVIGATION_SLACK_ID = "session-navigation-slack"
@@ -1389,6 +1398,15 @@ export function Session(props: {
         config,
         mutatePending,
         pendingDelivery: (inboxID) => pendingDeliveries().get(inboxID),
+        revertPart: (messageID, partID) =>
+          dialog.replace(() => (
+            <DialogMessage
+              messageID={messageID}
+              partID={partID}
+              sessionID={route.sessionID}
+              setPrompt={(value) => promptRef.current?.set(value)}
+            />
+          )),
       }}
     >
       <box flexDirection="row" flexGrow={1} minHeight={0}>
@@ -1858,6 +1876,7 @@ function SessionPartView(props: {
   message: (messageID: string) => SessionMessageInfo | undefined
   images?: boolean
 }) {
+  const ctx = use()
   const message = createMemo(() => props.message(props.partRef.messageID))
   const part = createMemo(() => {
     const item = message()
@@ -1873,6 +1892,7 @@ function SessionPartView(props: {
               part={item() as SessionMessageAssistantText}
               message={message() as SessionMessageAssistant}
               last={false}
+              onRevert={() => ctx.revertPart(props.partRef.messageID, props.partRef.partID)}
             />
           </Match>
           <Match when={item().type === "reasoning"}>
@@ -1883,7 +1903,11 @@ function SessionPartView(props: {
             />
           </Match>
           <Match when={item().type === "tool"}>
-            <ToolPart part={item() as SessionMessageAssistantTool} images={props.images} />
+            <ToolPart
+              part={item() as SessionMessageAssistantTool}
+              images={props.images}
+              onRevert={() => ctx.revertPart(props.partRef.messageID, props.partRef.partID)}
+            />
           </Match>
         </Switch>
       )}
@@ -2415,7 +2439,7 @@ function AssistantRetry(props: { retry: SessionMessageAssistant["retry"] }) {
 
 // Pending messages moved to individual tool pending functions
 
-function ToolPart(props: { part: SessionMessageAssistantTool; images?: boolean }) {
+function ToolPart(props: { part: SessionMessageAssistantTool; images?: boolean; onRevert?: () => void }) {
   const display = createMemo(() => toolDisplay(props.part.name))
 
   const toolprops = {
@@ -2486,7 +2510,7 @@ function ToolPart(props: { part: SessionMessageAssistantTool; images?: boolean }
     </Switch>
   )
   return [
-    content,
+    <RevertFallback.Provider value={props.onRevert}>{content}</RevertFallback.Provider>,
     <Show when={props.images !== false}>
       <ToolImages parts={[props.part]} />
     </Show>,
@@ -2660,6 +2684,7 @@ function InlineTool(props: {
   const [hover, setHover] = createSignal(false)
   const [errorExpanded, setErrorExpanded] = createSignal(false)
   const permission = useToolPermission(() => props.part)
+  const revert = useContext(RevertFallback)
 
   const error = createMemo(() =>
     !props.running && props.part.state.status === "error" ? props.part.state.error.message : undefined,
@@ -2705,7 +2730,8 @@ function InlineTool(props: {
           setErrorExpanded((value) => !value)
           return
         }
-        props.onClick?.()
+        if (props.onClick) return props.onClick()
+        revert?.()
       }}
     >
       {props.children}
@@ -2746,6 +2772,7 @@ function BlockTool(props: BlockToolProps) {
     () => props.error ?? (props.part?.state.status === "error" ? props.part.state.error.message : undefined),
   )
   const permission = useToolPermission(() => props.part)
+  const revert = useContext(RevertFallback)
   return (
     <box
       border={["left"]}
@@ -2757,11 +2784,12 @@ function BlockTool(props: BlockToolProps) {
       backgroundColor={hover() ? theme.decrease(background()) : background()}
       customBorderChars={SplitBorder.customBorderChars}
       borderColor={theme.background.base}
-      onMouseOver={() => props.onClick && setHover(true)}
+      onMouseOver={() => (props.onClick || revert) && setHover(true)}
       onMouseOut={() => setHover(false)}
       onMouseUp={() => {
         if (renderer.getSelection()?.getSelectedText()) return
-        props.onClick?.()
+        if (props.onClick) return props.onClick()
+        revert?.()
       }}
     >
       <Show

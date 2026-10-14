@@ -588,7 +588,7 @@ const EndpointSessionRevertStage = (raw: RawClient["server.session"]) => (input:
   preserveEffect<SessionRevertStageOutput>()(
     raw["session.revert.stage"]({
       params: { sessionID: input["sessionID"] },
-      payload: { messageID: input["messageID"], files: input["files"] },
+      payload: { messageID: input["messageID"], partID: input["partID"], files: input["files"] },
     }).pipe(
       Effect.mapError(mapClientError),
       Effect.map((value) => value.data),

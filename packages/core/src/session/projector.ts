@@ -34,6 +34,40 @@ type MessageEvent = Exclude<
 const decodeMessage = Schema.decodeUnknownSync(SessionMessage.Info)
 const encodeMessage = Schema.encodeSync(SessionMessage.Info)
 
+/**
+ * Resolves a TUI part reference to its index in an assistant message's content,
+ * or undefined when the reference cannot be matched. Tool calls use their call
+ * id; text and reasoning blocks use `<type>:<ordinal>` in message order.
+ */
+function partBoundaryIndex(row: typeof SessionMessageTable.$inferSelect, partID: string) {
+  const match = /^(text|reasoning):(\d+)$/.exec(partID)
+  const message = decodeMessage({ ...row.data, id: row.id, type: row.type })
+  if (message.type !== "assistant") return undefined
+  if (match) {
+    const type = match[1]
+    const ordinal = Number(match[2])
+    let seen = 0
+    for (let index = 0; index < message.content.length; index++) {
+      const part = message.content[index]!
+      if (part.type !== type) continue
+      if (seen === ordinal) return index
+      seen++
+    }
+    return undefined
+  }
+  const index = message.content.findIndex((part) => part.type === "tool" && part.id === partID)
+  return index === -1 ? undefined : index
+}
+
+/** Encoded message data with its content truncated to the first `keep` parts. */
+function truncateMessage(row: typeof SessionMessageTable.$inferSelect, keep: number) {
+  const message = decodeMessage({ ...row.data, id: row.id, type: row.type })
+  if (message.type !== "assistant") return undefined
+  const encoded = encodeMessage({ ...message, content: message.content.slice(0, keep) })
+  const { id: _id, type: _type, ...data } = encoded
+  return data
+}
+
 export class SessionAlreadyProjected extends Error {}
 
 type Usage = {
@@ -759,7 +793,7 @@ const layer = Layer.effectDiscard(
     yield* bus.project(SessionEvent.RevertEvent.Committed, (event) =>
       Effect.gen(function* () {
         const boundary = yield* db
-          .select({ seq: SessionMessageTable.seq })
+          .select()
           .from(SessionMessageTable)
           .where(
             and(eq(SessionMessageTable.session_id, event.data.sessionID), eq(SessionMessageTable.id, event.data.to)),
@@ -767,10 +801,27 @@ const layer = Layer.effectDiscard(
           .get()
           .pipe(Effect.orDie)
         if (!boundary) return yield* Effect.die(new Error(`Revert boundary message not found: ${event.data.to}`))
+        // A part-level boundary keeps the boundary message and drops only the
+        // parts from the target onward, so a revert can land inside an assistant
+        // turn instead of only at a full message boundary. Everything after the
+        // boundary message is still removed.
+        const keepParts = event.data.partID === undefined ? undefined : partBoundaryIndex(boundary, event.data.partID)
+        const truncated = keepParts !== undefined && keepParts > 0 ? truncateMessage(boundary, keepParts) : undefined
+        if (truncated !== undefined) {
+          yield* db
+            .update(SessionMessageTable)
+            .set({ data: truncated })
+            .where(and(eq(SessionMessageTable.id, boundary.id), eq(SessionMessageTable.session_id, event.data.sessionID)))
+            .run()
+            .pipe(Effect.orDie)
+        }
         yield* db
           .delete(SessionMessageTable)
           .where(
-            and(eq(SessionMessageTable.session_id, event.data.sessionID), gte(SessionMessageTable.seq, boundary.seq)),
+            and(
+              eq(SessionMessageTable.session_id, event.data.sessionID),
+              truncated !== undefined ? gt(SessionMessageTable.seq, boundary.seq) : gte(SessionMessageTable.seq, boundary.seq),
+            ),
           )
           .run()
           .pipe(Effect.orDie)
@@ -779,7 +830,9 @@ const layer = Layer.effectDiscard(
           .where(
             and(
               eq(SessionInboxTable.session_id, event.data.sessionID),
-              gte(SessionInboxTable.enqueued_seq, boundary.seq),
+              truncated !== undefined
+                ? gt(SessionInboxTable.enqueued_seq, boundary.seq)
+                : gte(SessionInboxTable.enqueued_seq, boundary.seq),
             ),
           )
           .run()

@@ -825,7 +825,7 @@ export function make(options: ClientOptions) {
             {
               method: "POST",
               path: `/api/session/${encodeURIComponent(input.sessionID)}/revert/stage`,
-              body: { messageID: input["messageID"], files: input["files"] },
+              body: { messageID: input["messageID"], partID: input["partID"], files: input["files"] },
               successStatus: 200,
               declaredStatuses: [400, 401, 404, 409, 500],
               empty: false,

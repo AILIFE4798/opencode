@@ -1394,7 +1394,7 @@ export type SessionRevertCommitted = {
   type: "session.revert.committed"
   durable: { aggregateID: string; seq: EventSeq; version: 1 }
   location?: LocationRef
-  data: { sessionID: SessionID; to: SessionMessageID }
+  data: { sessionID: SessionID; to: SessionMessageID; partID?: string }
 }
 
 export type SessionUsageRecorded = {
@@ -4668,8 +4668,21 @@ export type SessionWaitOutput = void
 
 export type SessionRevertStageInput = {
   readonly sessionID: { readonly sessionID: string }["sessionID"]
-  readonly messageID: { readonly messageID: string; readonly files?: boolean | undefined }["messageID"]
-  readonly files?: { readonly messageID: string; readonly files?: boolean | undefined }["files"]
+  readonly messageID: {
+    readonly messageID: string
+    readonly partID?: string | undefined
+    readonly files?: boolean | undefined
+  }["messageID"]
+  readonly partID?: {
+    readonly messageID: string
+    readonly partID?: string | undefined
+    readonly files?: boolean | undefined
+  }["partID"]
+  readonly files?: {
+    readonly messageID: string
+    readonly partID?: string | undefined
+    readonly files?: boolean | undefined
+  }["files"]
 }
 
 export type SessionRevertStageOutput = { data: SessionRevert }["data"]

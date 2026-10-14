@@ -1,6 +1,7 @@
 import { createMemo, createSignal, Match, Show, Switch } from "solid-js"
 import { RGBA, TextAttributes, type MouseEvent } from "@opentui/core"
 import type { JSX } from "@opentui/solid"
+import { useRenderer } from "@opentui/solid"
 import type {
   SessionMessageAssistant,
   SessionMessageAssistantReasoning,
@@ -170,14 +171,24 @@ export function TextPart(props: {
   last: boolean
   part: SessionMessageAssistantText
   message: SessionMessageAssistant
+  onRevert?: () => void
 }) {
   const ctx = use()
   const theme = useTheme()
   const { currentSyntax: syntax } = useThemes()
   const plugins = usePlugin()
+  const renderer = useRenderer()
   return (
     <Show when={props.part.text.trim()}>
-      <box paddingLeft={3} flexShrink={0}>
+      <box
+        paddingLeft={3}
+        flexShrink={0}
+        onMouseUp={() => {
+          if (!props.onRevert) return
+          if (renderer.getSelection()?.getSelectedText()) return
+          props.onRevert()
+        }}
+      >
         {/* Configure custom nodes before parsing; apply content before streaming so completion keeps the final tokens. */}
         <markdown
           syntaxStyle={syntax()}

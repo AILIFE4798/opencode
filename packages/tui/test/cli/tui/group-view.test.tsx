@@ -332,6 +332,7 @@ function mount(input: {
                 config: input.config,
                 mutatePending: async () => true,
                 pendingDelivery: () => undefined,
+                revertPart: () => {},
               }}
             >
               <box paddingTop={2}>

@@ -49,9 +49,26 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
   const client = useClient()
   const config = useConfig()
   const [rows, setRows] = createStore<(SessionRow & { key?: string })[]>([])
-  const revertBoundary = () => data.session.get(sessionID())?.revert?.messageID
+  const revert = () => data.session.get(sessionID())?.revert
   const turnTokens = () => Boolean(config.data.debug?.turn_tokens)
   const verbosity = () => config.data.session?.verbosity ?? defaultVerbosity
+
+  // Apply the staged revert boundary to the visible transcript. A message-level
+  // boundary hides everything from that message on; a part-level boundary keeps
+  // the assistant message but trims its content to the parts before the target,
+  // so reverting can land inside a turn rather than only at a message boundary.
+  function scopeRevert(messages: SessionMessageInfo[]) {
+    const boundary = revert()
+    if (!boundary?.messageID) return messages
+    const before = messages.filter((message) => message.id < boundary.messageID)
+    if (!boundary.partID) return before
+    const target = messages.find((message) => message.id === boundary.messageID)
+    if (target?.type !== "assistant") return before
+    const part = resolvePart(target, boundary.partID)
+    const index = part ? target.content.indexOf(part) : -1
+    if (index <= 0) return before
+    return [...before, { ...target, content: target.content.slice(0, index) }]
+  }
 
   function reduce() {
     const messages = data.session.message.list(sessionID())
@@ -61,13 +78,7 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
       pending.flatMap((item) => (item.type === "user" && item.delivery === "queue" ? [item.id] : [])),
     )
     const visible = queued.size === 0 ? messages : messages.filter((message) => !queued.has(message.id))
-    const boundary = revertBoundary()
-    const rows = reduceSessionRows(
-      boundary ? visible.filter((message) => message.id < boundary) : visible,
-      inputs,
-      turnTokens(),
-      verbosity(),
-    )
+    const rows = reduceSessionRows(scopeRevert(visible), inputs, turnTokens(), verbosity())
     partitionPending(rows, pendingPermissions())
     const position = rows.findIndex((row) => row.type === "message" && inputs.has(row.messageID))
     rows.splice(
@@ -142,7 +153,13 @@ export function createSessionRows(sessionID: Accessor<string>, onSynced?: (sessi
 
   // Re-reduce when the revert boundary changes (stage/clear/commit). These reactions defer
   // their first run: the mount effect above has already reduced the same state.
-  createEffect(on(revertBoundary, rebuild, { defer: true }))
+  createEffect(
+    on(
+      () => [revert()?.messageID, revert()?.partID] as const,
+      rebuild,
+      { defer: true },
+    ),
+  )
 
   createEffect(
     on(

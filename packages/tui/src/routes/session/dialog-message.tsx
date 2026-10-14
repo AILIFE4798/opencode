@@ -11,6 +11,7 @@ import { projectedPromptInput } from "../../prompt/codec"
 
 export function DialogMessage(props: {
   messageID: string
+  partID?: string
   sessionID: string
   setPrompt?: (prompt: PromptInfo) => void
 }) {
@@ -19,6 +20,16 @@ export function DialogMessage(props: {
   const toast = useToast()
   const client = useClient()
   const message = createMemo(() => data.session.message.get(props.sessionID, props.messageID))
+  // Reverting to a specific part (assistant text / tool call) undoes from that
+  // exact position forward, not just to a user-message boundary.
+  const targetDescription = createMemo(() => {
+    if (!props.partID) return "undo messages and file changes"
+    const value = message()
+    if (value?.type !== "assistant") return "undo from this message forward"
+    const part = value.content.find((part) => (part.type === "tool" ? part.id : undefined) === props.partID)
+    if (part?.type === "tool") return `undo from this ${part.name} call forward`
+    return "undo from this part forward"
+  })
 
   return (
     <DialogSelect
@@ -33,7 +44,7 @@ export function DialogMessage(props: {
         {
           title: "Revert",
           value: "session.revert",
-          description: "undo messages and file changes",
+          description: targetDescription(),
           onSelect: (dialog) => {
             const value = message()
             if (value?.type === "user") {
@@ -43,7 +54,11 @@ export function DialogMessage(props: {
               })
             }
             void client.api.session.revert
-              .stage({ sessionID: props.sessionID, messageID: props.messageID })
+              .stage({
+                sessionID: props.sessionID,
+                messageID: props.messageID,
+                ...(props.partID ? { partID: props.partID } : {}),
+              })
               .catch((error) => toast.show({ message: errorMessage(error), variant: "error", duration: 5000 }))
             dialog.clear()
           },

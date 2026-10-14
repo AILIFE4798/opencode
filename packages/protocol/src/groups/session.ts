@@ -534,7 +534,11 @@ export const makeSessionGroup = <I extends HttpApiMiddleware.AnyId, S, FormI ext
     .add(
       HttpApiEndpoint.post("session.revert.stage", "/api/session/:sessionID/revert/stage", {
         params: { sessionID: Session.ID },
-        payload: Schema.Struct({ messageID: SessionMessage.ID, files: Schema.Boolean.pipe(Schema.optional) }),
+        payload: Schema.Struct({
+          messageID: SessionMessage.ID,
+          partID: Schema.String.pipe(Schema.optional),
+          files: Schema.Boolean.pipe(Schema.optional),
+        }),
         success: Schema.Struct({ data: Session.Revert }),
         error: [MessageNotFoundError, SessionNotFoundError, SessionBusyError, UnknownError],
       })

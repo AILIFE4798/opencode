@@ -645,7 +645,7 @@ export namespace RevertEvent {
   export const Committed = Event.durable({
     type: "session.revert.committed",
     ...options,
-    schema: { ...Base, to: SessionMessage.ID },
+    schema: { ...Base, to: SessionMessage.ID, partID: Schema.String.pipe(optional) },
   })
 }
 

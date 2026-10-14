@@ -318,11 +318,16 @@ export const make = Effect.fn("Session.make")(function* () {
   )
   const stage = Effect.fn("Session.revert.stage")(function* (
     sessionID: SessionSchema.ID,
-    input: { messageID: SessionMessage.ID; files?: boolean },
+    input: { messageID: SessionMessage.ID; partID?: string; files?: boolean },
   ) {
     const session = yield* get(sessionID)
     if (yield* execution.isActive(sessionID)) return yield* new BusyError({ sessionID })
-    return yield* SessionRevert.stage({ session, messageID: input.messageID, files: input.files }).pipe(
+    return yield* SessionRevert.stage({
+      session,
+      messageID: input.messageID,
+      partID: input.partID,
+      files: input.files,
+    }).pipe(
       Effect.provideService(Instance.Service, instances),
       Effect.provideService(Database.Service, database),
       Effect.provideService(Bus.Service, bus),

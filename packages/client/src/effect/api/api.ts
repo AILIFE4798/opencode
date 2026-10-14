@@ -338,6 +338,7 @@ export type SessionWaitOperation<E = never> = (input: SessionWaitInput) => Effec
 export type SessionRevertStageInput = {
   readonly sessionID: Session.ID
   readonly messageID: SessionMessage.ID
+  readonly partID?: string | undefined
   readonly files?: boolean | undefined
 }
 export type SessionRevertStageOutput = Session.Revert
@@ -1182,7 +1183,11 @@ export type SessionLogOutput =
           readonly location?:
             | { readonly directory: AbsolutePath; readonly workspaceID?: Workspace.ID | undefined }
             | undefined
-          readonly data: { readonly sessionID: Session.ID; readonly to: SessionMessage.ID }
+          readonly data: {
+            readonly sessionID: Session.ID
+            readonly to: SessionMessage.ID
+            readonly partID?: string | undefined
+          }
         }
       | {
           readonly id: Event.ID

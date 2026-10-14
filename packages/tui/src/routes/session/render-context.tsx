@@ -35,6 +35,8 @@ export const context = createContext<{
   config: ReturnType<typeof useConfig>["data"]
   mutatePending: (action: PendingAction, inboxID: string) => Promise<boolean>
   pendingDelivery: (inboxID: string) => SessionInbox.Delivery | undefined
+  /** Opens the part-level revert dialog for a specific assistant content part. */
+  revertPart: (messageID: string, partID: string) => void
 }>()
 
 export function use() {
