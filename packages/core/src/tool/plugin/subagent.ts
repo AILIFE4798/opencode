@@ -16,11 +16,11 @@ import { SubagentJob } from "../../session/subagent-job.js"
 
 export const name = "subagent"
 
-const backgroundResult = (sessionID: SessionSchema.ID) => ({
+const backgroundResult = (sessionID: SessionSchema.ID, description: string) => ({
   sessionID,
   status: "running" as const,
   output: [
-    `The subagent is working in the background (sessionID: ${sessionID}). You will be notified automatically when it finishes.`,
+    `The subagent is working in the background (sessionID: ${sessionID}, task "${description}"). You will be notified automatically when it finishes.`,
     "DO NOT sleep, poll for progress, ask the subagent for status, or duplicate this subagent's work; avoid working with the same files or topics it is using.",
     "Work on non-overlapping tasks, or briefly tell the user what you launched and end your response.",
   ].join("\n"),
@@ -59,6 +59,8 @@ export const description = [
   "Foreground (default) runs the subagent to completion and returns its final response.",
   "Background mode (background=true) launches it asynchronously and returns immediately; you are notified when it finishes.",
   "Use background only for independent work that can run while you continue elsewhere.",
+  "RESUMING IS MANDATORY WHEN A TASK WAS INTERRUPTED. If a task was cancelled, aborted, errored, or otherwise stopped before it finished its stated goal, and you still need that work done, you MUST continue it by calling this tool again with the SAME sessionID from its output — never launch a new task for the same work and never do that work yourself. The child session and all of its prior messages, tool outputs, and partial progress are preserved, so passing sessionID lets it pick up exactly where it left off. Only omit sessionID when you deliberately want a brand-new, independent child session.",
+  "MATCH THE SESSIONID TO THE TASK BY ITS DESCRIPTION. Every task result is tagged with both its description and its sessionID (e.g. `<subagent sessionID=\"ses_...\" description=\"Verify bottom-anchored QS slide\">`). When resuming, use the sessionID whose description matches the interrupted work. Never guess, never reuse the most recent id, and never resume a session whose description does not match — that continues an unrelated subagent and produces wrong results. If no id matches the interrupted task, start a fresh task instead and include the full context it needs.",
 ].join("\n")
 
 export const Plugin = {
@@ -228,7 +230,7 @@ export const Plugin = {
 
               if (background) {
                 yield* subagents.background(recovery)
-                return backgroundResult(child.id)
+                return backgroundResult(child.id, input.description)
               }
 
               const result = yield* jobs.block({ id: child.id, sessionID: context.sessionID }).pipe(
@@ -240,15 +242,19 @@ export const Plugin = {
               )
               if (result?.type === "backgrounded") {
                 yield* subagents.notify(recovery, result.info.started_at)
-                return backgroundResult(child.id)
+                return backgroundResult(child.id, input.description)
               }
-              // Failure surfaces keep the sessionID visible so the model can continue the child.
+              // Failure surfaces keep the sessionID and task description visible so the model can
+              // continue this exact child (via sessionID) instead of starting a fresh one. The
+              // description disambiguates when several child ids are in context.
               if (result?.info.status === "error")
                 return yield* new ToolFailure({
-                  message: `Subagent failed (sessionID: ${child.id}): ${result.info.error ?? "unknown error"}`,
+                  message: `Subagent failed (sessionID: ${child.id}, task "${input.description}"): ${result.info.error ?? "unknown error"}. Resume this task with sessionID="${child.id}".`,
                 })
               if (result?.info.status === "cancelled")
-                return yield* new ToolFailure({ message: `Subagent cancelled (sessionID: ${child.id})` })
+                return yield* new ToolFailure({
+                  message: `Subagent cancelled (sessionID: ${child.id}, task "${input.description}"). Resume this task with sessionID="${child.id}".`,
+                })
               return {
                 sessionID: child.id,
                 status: "completed" as const,
@@ -259,7 +265,7 @@ export const Plugin = {
                 output,
                 content:
                   output.status === "completed"
-                    ? `<subagent sessionID="${output.sessionID}" state="completed">\n${output.output}\n</subagent>`
+                    ? `<subagent sessionID="${output.sessionID}" state="completed" description="${input.description}">\n${output.output}\n</subagent>`
                     : output.output,
                 metadata: { sessionID: output.sessionID, status: output.status },
               })),

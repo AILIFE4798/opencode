@@ -43,8 +43,8 @@ import { testEffect } from "./lib/effect"
 import { executeTool, registerToolPlugin, toolIdentity } from "./lib/tool"
 
 const childText = "child final response"
-const completedOutput = (sessionID: Session.ID) =>
-  `<subagent sessionID="${sessionID}" state="completed">\n${childText}\n</subagent>`
+const completedOutput = (sessionID: Session.ID, description: string) =>
+  `<subagent sessionID="${sessionID}" state="completed" description="${description}">\n${childText}\n</subagent>`
 const childModel = Model.Ref.make({ id: Model.ID.make("child"), providerID: Provider.ID.make("test") })
 const parentModel = Model.Ref.make({ id: Model.ID.make("parent"), providerID: Provider.ID.make("test") })
 const overrideModel = Model.Ref.make({
@@ -434,7 +434,7 @@ describe("SubagentTool", () => {
             content: [{ type: "text", text: expect.stringContaining(childText) }],
           })
           const child = yield* sessions.get(outputSessionID(settled.metadata))
-          expect(settled.content).toEqual([{ type: "text", text: completedOutput(child.id) }])
+          expect(settled.content).toEqual([{ type: "text", text: completedOutput(child.id, "review") }])
           expect(settled.metadata).toEqual({ sessionID: child.id, status: "completed" })
           expect(progress[0]).toEqual({ sessionID: child.id, status: "running" })
           expect(child).toMatchObject({
@@ -514,7 +514,7 @@ describe("SubagentTool", () => {
               message.type === "user" ? [message.payload.text] : [],
             ),
           ).toEqual(["You are a subagent spawned by another session.\nreview this", "continue this"])
-          expect(second.content).toEqual([{ type: "text", text: completedOutput(childID) }])
+          expect(second.content).toEqual([{ type: "text", text: completedOutput(childID, "follow up") }])
         }),
       ),
     ),
