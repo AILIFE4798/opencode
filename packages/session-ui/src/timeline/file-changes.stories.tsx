@@ -204,13 +204,16 @@ function finishedTurnDocument(files: { file: string; before: string; after: stri
   const document = storyDocument([
     storyTool("tool_turn_shell", "shell", "completed", { command: "bun run format" }, { output: "Formatted" }),
   ])
-  const step = document.messages.at(-1)!
+
+  const step = document.messages.at(-1)
+
+  if (step?.type !== "assistant") throw new Error("Expected the story document to end with a step")
 
   return {
     ...document,
     messages: [
       ...document.messages.slice(0, -1),
-      { ...step, ...(step.type === "assistant" ? { snapshot: { files: files.map((item) => item.file) } } : {}) },
+      { ...step, snapshot: { files: files.map((item) => item.file) } },
       { id: "msg_turn_idle", type: "idle", outcome: "succeeded", time: { created: step.time.created + 400 } },
     ],
     diffs: files.map((item) => {
@@ -324,6 +327,7 @@ export const AppendingToolCalls = {
 export const ChangingFiles = {
   args: { scenario: "streaming" },
   argTypes: { scenario: { control: "select", options: Object.keys(fileScenarios) } },
+  // SAFETY: the scenario control only offers fileScenarios keys.
   render: (args: { scenario: string }) => fileScenarios[args.scenario as keyof typeof fileScenarios].render(),
 }
 

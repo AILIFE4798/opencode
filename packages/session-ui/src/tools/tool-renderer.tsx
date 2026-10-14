@@ -2214,6 +2214,7 @@ ToolRegistry.register({
   render(props) {
     const i18n = useI18n()
     const fileComponent = useFileComponent()
+
     const files = createMemo(
       () =>
         props.pendingFiles?.map((path) => ({
@@ -2224,6 +2225,7 @@ ToolRegistry.register({
           views: [],
         })) ?? patchFileGroups(props.metadata.files),
     )
+
     const [expanded, setExpanded] = createSignal<string[]>([])
 
     const title = createMemo(() => {

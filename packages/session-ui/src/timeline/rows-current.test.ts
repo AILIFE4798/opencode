@@ -1464,6 +1464,7 @@ describe("current session timeline rows", () => {
         snapshot: files && { start: "tree_a", end: "tree_b", files },
         time: { created: 1, completed: 2 },
       }) satisfies SessionMessageAssistant
+
     const idle = (id: string) => ({ id, type: "idle", outcome: "succeeded", time: { created: 1 } }) as const
     const user = (id: string) => ({ id, type: "user", text: id, time: { created: 1 } }) as const
 

@@ -278,6 +278,7 @@ export namespace Timeline {
         turns.push(turn)
         turnByUserID.set(message.id, turn)
         current = turn
+
         // Undelivered input has not joined the turn yet.
         if (!pendingInputIDs?.has(message.id))
           execution = { opener: execution?.opener ?? message.id, turn, files: execution?.files ?? new Set() }
@@ -287,6 +288,7 @@ export namespace Timeline {
 
       if (message.type === "idle") {
         appendIdle(message)
+
         // The summary follows the turn's last prompt, after any failure the marker reports.
         // Sorted like the diff route's git order, so the list keeps its order when the diffs arrive.
         if (turnDiffs && execution?.files.size)
