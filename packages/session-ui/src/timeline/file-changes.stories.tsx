@@ -243,6 +243,7 @@ export const TurnChangeSummary = {
         { file: "packages/app/src/session/legacy-summary.ts", before: "export const legacy = []\n", after: "" },
       ])}
       width="860px"
+      turnDiffs
     />
   ),
 }
@@ -251,7 +252,7 @@ export const TurnChangeSummaryOverflow = {
   render: () => (
     <CurrentSessionTimelineStory
       title="Turn change summary with many files"
-      description="Past ten files, the rest of the turn's changes wait behind Show all."
+      description="Past five files, the rest of the turn's changes wait behind Show all."
       document={finishedTurnDocument(
         Array.from({ length: 14 }, (_, index) => ({
           file: `src/modules/module-${index + 1}.ts`,
@@ -260,6 +261,7 @@ export const TurnChangeSummaryOverflow = {
         })),
       )}
       width="860px"
+      turnDiffs
     />
   ),
 }

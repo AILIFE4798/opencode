@@ -1484,7 +1484,12 @@ describe("current session timeline rows", () => {
       step("msg_running", ["src/b.ts"]),
     ] satisfies SessionMessageInfo[]
 
-    const rows = Timeline.constructSessionMessageRows(source, true, { type: "busy" }).rows
+    const rows = createTimelineProjection({
+      sessionMessages: source,
+      status: { type: "busy" },
+      reasoningMode: "compact",
+      turnDiffs: true,
+    }).rows
 
     expect(rows.filter((row) => Predicate.isTagged(row, "TurnDiff"))).toEqual([
       new TimelineRow.TurnDiff({
@@ -1502,5 +1507,11 @@ describe("current session timeline rows", () => {
       "assistant-part:part:part:msg_answer:msg_answer:text:0",
       "turn-diff:msg_idle_1",
     ])
+    // Hosts opt in, so a timeline without the setting lists no summaries.
+    expect(
+      Timeline.constructSessionMessageRows(source, true, { type: "busy" }).rows.some((row) =>
+        Predicate.isTagged(row, "TurnDiff"),
+      ),
+    ).toBe(false)
   })
 })

@@ -46,7 +46,7 @@ import {
 const emptyAssistantMessages: SessionMessageAssistant[] = []
 
 // Past this many files, the rest of a turn's changes wait behind "Show all".
-const turnDiffFileLimit = 10
+const turnDiffFileLimit = 5
 
 const decodeMetadataFile = Schema.decodeUnknownOption(Schema.Struct({ file: Schema.String }))
 
@@ -745,7 +745,7 @@ export function createSessionTimelineRowRenderer(input: {
             <Show when={overflow()}>
               <button
                 type="button"
-                class="text-14-regular text-text-interactive-base"
+                class="ml-auto text-14-regular text-text-interactive-base"
                 onClick={() => input.disclosure.set(showAllKey(), !showAll())}
               >
                 {showAll() ? i18n.t("ui.sessionTurn.diffs.showLess") : i18n.t("ui.sessionTurn.diffs.showAll")}

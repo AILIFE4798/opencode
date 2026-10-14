@@ -80,6 +80,7 @@ export type TimelineProjectionInput = {
   timelineDetail?: TimelineDetail
   pendingInputIDs?: ReadonlySet<string>
   queuedCompactionIDs?: readonly string[]
+  turnDiffs?: boolean
   previousRows?: TimelineRow.TimelineRow[]
 }
 
@@ -96,6 +97,7 @@ export function createTimelineProjection(input: TimelineProjectionInput) {
     undefined,
     input.timelineDetail,
     input.queuedCompactionIDs,
+    input.turnDiffs,
   )
 
   const rows = reuseTimelineRows(input.previousRows, projection.rows)
@@ -134,6 +136,8 @@ export function createReactiveTimelineProjection(input: {
   timelineDetail?: Accessor<TimelineDetail>
   pendingInputIDs?: Accessor<ReadonlySet<string>>
   queuedCompactionIDs?: Accessor<readonly string[]>
+  /** Summarize each finished turn's changed files after it. */
+  turnDiffs?: Accessor<boolean>
 }) {
   const sessionMessageByID = createMemo(
     () => new Map(input.sessionMessages().map((message) => [message.id, message] as const)),
@@ -171,6 +175,7 @@ export function createReactiveTimelineProjection(input: {
             textVisible().get(content)!(),
       input.timelineDetail?.(),
       input.queuedCompactionIDs?.(),
+      input.turnDiffs?.(),
     ),
   )
 
@@ -233,6 +238,7 @@ export namespace Timeline {
     isRenderable = renderable,
     detail?: TimelineDetail,
     queuedCompactionIDs: readonly string[] = [],
+    turnDiffs = false,
   ) {
     type Turn = {
       id: string
@@ -283,7 +289,7 @@ export namespace Timeline {
         appendIdle(message)
         // The summary follows the turn's last prompt, after any failure the marker reports.
         // Sorted like the diff route's git order, so the list keeps its order when the diffs arrive.
-        if (execution?.files.size)
+        if (turnDiffs && execution?.files.size)
           execution.turn.entries.push({
             type: "diff",
             message,
