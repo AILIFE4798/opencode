@@ -723,23 +723,25 @@ export function createSessionTimelineRowRenderer(input: {
 
   function TurnDiff(props: { row: TimelineRow.TurnDiff; onSizeChange?: () => void }) {
     const render = ToolRegistry.render("patch") ?? GenericTool
-    const diffs = () => turnDiffs[props.row.messageID] ?? []
+    // Until the diff loads, list the paths the turn's steps recorded, without change counts.
+    const diffs = () => turnDiffs[props.row.messageID]
+    const paths = () => diffs()?.map((diff) => diff.file) ?? props.row.files
     const showAllKey = () => `turn-diff:${props.row.messageID}`
     const showAll = () => input.disclosure.value(showAllKey()) === true
-    const overflow = () => diffs().length > turnDiffFileLimit
-    const visible = createMemo(() => (showAll() ? diffs() : diffs().slice(0, turnDiffFileLimit)))
+    const limit = <T,>(items: readonly T[]) => (showAll() ? items : items.slice(0, turnDiffFileLimit))
+    const overflow = () => paths().length > turnDiffFileLimit
     const fileKey = (path: string) => `turn-diff:${props.row.messageID}:file:${path}`
 
     createEffect(() => loadTurnDiff(props.row))
 
     return (
-      <Show when={diffs().length > 0}>
+      <Show when={data.turnDiff && paths().length > 0}>
         <div data-slot="session-turn-diffs" class="flex flex-col gap-2 pt-4">
           <div class="flex h-6 min-w-0 items-center gap-2">
             <span class="text-14-medium text-text-strong tabular-nums">
-              {i18n.plural("ui.sessionTurn.diffs.changed", diffs().length)}
+              {i18n.plural("ui.sessionTurn.diffs.changed", paths().length)}
             </span>
-            <DiffChanges changes={[...diffs()]} />
+            <DiffChanges changes={[...(diffs() ?? [])]} />
             <Show when={overflow()}>
               <button
                 type="button"
@@ -754,7 +756,8 @@ export function createSessionTimelineRowRenderer(input: {
             component={render}
             tool="patch"
             input={{}}
-            metadata={{ files: visible() }}
+            metadata={{ files: limit(diffs() ?? []) }}
+            pendingFiles={diffs() ? undefined : limit(props.row.files)}
             status="completed"
             fileOpen={(path: string) => input.disclosure.value(fileKey(path))}
             onFileOpenChange={(path: string, open: boolean) => input.disclosure.set(fileKey(path), open)}

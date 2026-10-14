@@ -1468,11 +1468,12 @@ describe("current session timeline rows", () => {
     const user = (id: string) => ({ id, type: "user", text: id, time: { created: 1 } }) as const
 
     const source = [
-      // A steered prompt joins the running turn; the summary diffs from its opening prompt.
+      // A steered prompt joins the running turn; the summary diffs from its opening prompt and lists
+      // every path its steps recorded once, sorted.
       user("msg_open"),
       step("msg_edit", ["src/a.ts"]),
       user("msg_steer"),
-      step("msg_answer"),
+      step("msg_answer", ["src/c.ts", "src/a.ts"]),
       idle("msg_idle_1"),
       // A turn that changed nothing gets no summary.
       user("msg_ask"),
@@ -1486,7 +1487,12 @@ describe("current session timeline rows", () => {
     const rows = Timeline.constructSessionMessageRows(source, true, { type: "busy" }).rows
 
     expect(rows.filter((row) => Predicate.isTagged(row, "TurnDiff"))).toEqual([
-      new TimelineRow.TurnDiff({ userMessageID: "msg_steer", messageID: "msg_idle_1", from: "msg_open" }),
+      new TimelineRow.TurnDiff({
+        userMessageID: "msg_steer",
+        messageID: "msg_idle_1",
+        from: "msg_open",
+        files: ["src/a.ts", "src/c.ts"],
+      }),
     ])
     expect(rows.map(TimelineRow.key).slice(0, 6)).toEqual([
       "user-message:msg_open",

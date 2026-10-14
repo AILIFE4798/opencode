@@ -33,7 +33,7 @@ type Entry =
   | { type: "assistant"; message: SessionMessageAssistant }
   | { type: "notice"; message: Notice }
   | { type: "idle"; message: FailedIdle }
-  | { type: "diff"; message: SessionMessageIdle; from: string }
+  | { type: "diff"; message: SessionMessageIdle; from: string; files: string[] }
 
 type Content = SessionMessageAssistant["content"][number]
 
@@ -247,7 +247,7 @@ export namespace Timeline {
     const leading: Notice[] = []
     let current: Turn | undefined
     // Everything since the last idle marker is one turn, including prompts steered in meanwhile.
-    let execution: { opener: string; turn: Turn; changed: boolean } | undefined
+    let execution: { opener: string; turn: Turn; files: Set<string> } | undefined
 
     messages.forEach((message) => {
       if (isNotice(message)) {
@@ -274,7 +274,7 @@ export namespace Timeline {
         current = turn
         // Undelivered input has not joined the turn yet.
         if (!pendingInputIDs?.has(message.id))
-          execution = { opener: execution?.opener ?? message.id, turn, changed: execution?.changed ?? false }
+          execution = { opener: execution?.opener ?? message.id, turn, files: execution?.files ?? new Set() }
 
         return
       }
@@ -282,14 +282,21 @@ export namespace Timeline {
       if (message.type === "idle") {
         appendIdle(message)
         // The summary follows the turn's last prompt, after any failure the marker reports.
-        if (execution?.changed) execution.turn.entries.push({ type: "diff", message, from: execution.opener })
+        // Sorted like the diff route's git order, so the list keeps its order when the diffs arrive.
+        if (execution?.files.size)
+          execution.turn.entries.push({
+            type: "diff",
+            message,
+            from: execution.opener,
+            files: [...execution.files].sort(),
+          })
         execution = undefined
 
         return
       }
 
       if (message.type !== "assistant") return
-      if (execution && message.snapshot?.files?.length) execution.changed = true
+      message.snapshot?.files?.forEach((file) => execution?.files.add(file))
       const existing = current?.user ? current : undefined
 
       if (existing?.user) {
@@ -576,7 +583,14 @@ export namespace Timeline {
         case "diff":
           appendAssistantSegment(assistantSegment)
           assistantSegment = []
-          rows.push(new TimelineRow.TurnDiff({ userMessageID: turnID, messageID: entry.message.id, from: entry.from }))
+          rows.push(
+            new TimelineRow.TurnDiff({
+              userMessageID: turnID,
+              messageID: entry.message.id,
+              from: entry.from,
+              files: entry.files,
+            }),
+          )
 
           return
         case "notice":
