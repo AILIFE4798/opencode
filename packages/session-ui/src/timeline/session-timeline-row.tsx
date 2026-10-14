@@ -765,6 +765,15 @@ export function createSessionTimelineRowRenderer(input: {
             virtualizeDiff={false}
             onContentRendered={props.onSizeChange}
           />
+          <Show when={overflow() && !showAll()}>
+            <button
+              type="button"
+              class="self-start text-14-regular text-text-interactive-base"
+              onClick={() => input.disclosure.set(showAllKey(), true)}
+            >
+              {i18n.plural("ui.sessionTurn.diffs.showMore", paths().length - turnDiffFileLimit)}
+            </button>
+          </Show>
         </div>
       </Show>
     )
