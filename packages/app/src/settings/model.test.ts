@@ -93,7 +93,7 @@ describe("settings schema", () => {
         showFileTree: false,
         timelineDetail: timelinePresets[2].value,
         showCustomAgents: false,
-        showTurnDiffs: true,
+        showTurnDiffs: false,
         mobileTitlebarPosition: "top",
         terminalPlacement: "side",
         followUpBehavior: "steer",

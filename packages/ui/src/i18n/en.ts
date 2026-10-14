@@ -63,8 +63,6 @@ const source = {
   "ui.sessionTurn.diffs.changed.other": "{{count}} Changed files",
   "ui.sessionTurn.diffs.showAll": "Show all",
   "ui.sessionTurn.diffs.showLess": "Show less",
-  "ui.sessionTurn.diffs.showMore.one": "Show {{count}} more file",
-  "ui.sessionTurn.diffs.showMore.other": "Show {{count}} more files",
   "ui.sessionTurn.diffs.more": "+{{count}} more files",
 
   "ui.sessionTurn.retry.retrying": "retrying",
