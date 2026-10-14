@@ -1222,6 +1222,8 @@ export interface ToolProps {
   onContentRendered?: () => void
   /** Paths the patch view lists, without change counts or diffs, instead of `metadata.files`. */
   pendingFiles?: readonly string[]
+  /** A last row in the patch view's file list that runs an action, such as listing more files. */
+  fileListAction?: { label: string; onClick: () => void }
   forceOpen?: boolean
   locked?: boolean
 }
@@ -2471,6 +2473,23 @@ ToolRegistry.register({
                 )
               }}
             </Index>
+            <Show when={props.fileListAction}>
+              {(action) => (
+                <div data-slot="accordion-item" data-closed="">
+                  <div data-slot="accordion-header" data-closed="">
+                    <button
+                      type="button"
+                      data-slot="accordion-trigger"
+                      data-closed=""
+                      class="text-text-interactive-base"
+                      onClick={() => action().onClick()}
+                    >
+                      {action().label}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Show>
           </FileAccordionGroup>
         </Show>
       </div>

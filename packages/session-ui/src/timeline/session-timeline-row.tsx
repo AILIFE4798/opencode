@@ -764,16 +764,15 @@ export function createSessionTimelineRowRenderer(input: {
             deferContent
             virtualizeDiff={false}
             onContentRendered={props.onSizeChange}
+            fileListAction={
+              overflow() && !showAll()
+                ? {
+                    label: i18n.plural("ui.sessionTurn.diffs.showMore", paths().length - turnDiffFileLimit),
+                    onClick: () => input.disclosure.set(showAllKey(), true),
+                  }
+                : undefined
+            }
           />
-          <Show when={overflow() && !showAll()}>
-            <button
-              type="button"
-              class="self-start text-14-regular text-text-interactive-base"
-              onClick={() => input.disclosure.set(showAllKey(), true)}
-            >
-              {i18n.plural("ui.sessionTurn.diffs.showMore", paths().length - turnDiffFileLimit)}
-            </button>
-          </Show>
         </div>
       </Show>
     )
