@@ -46,8 +46,14 @@ export function createPermissionAutoApprover(input: { sdk: ServerSDK; data: Data
   createEffect(() => {
     if (!enabled()) return
 
-    for (const session of input.data.session.list()) {
-      for (const request of input.data.session.permission.list(session.id) ?? []) approve(request)
+    // session.list() misses a subagent whose permissions were synced before its info landed.
+    // Those requests are otherwise invisible while auto-approve hides the dock.
+    const ids = new Set([
+      ...input.data.session.list().map((session) => session.id),
+      ...input.data.session.permission.sessions(),
+    ])
+    for (const id of ids) {
+      for (const request of input.data.session.permission.list(id) ?? []) approve(request)
     }
   })
 
