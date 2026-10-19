@@ -1473,8 +1473,8 @@ export function Session(props: {
               <Composer
                 sessionID={route.sessionID}
                 open={
-                  promptedPermissions().length === 0 &&
-                  (composer.open || (!!session()?.parentID && forms().length === 0))
+                  composer.open ||
+                  (!!session()?.parentID && forms().length === 0 && promptedPermissions().length === 0)
                 }
                 defaultTab={composer.tab ?? (session()?.parentID ? "subagents" : undefined)}
                 onClose={() => {
@@ -1491,8 +1491,8 @@ export function Session(props: {
               <Switch>
                 <Match
                   when={
-                    promptedPermissions().length === 0 &&
-                    (composer.open || (!!session()?.parentID && forms().length === 0))
+                    composer.open ||
+                    (!!session()?.parentID && forms().length === 0 && promptedPermissions().length === 0)
                   }
                 >
                   {null}
